@@ -3,6 +3,8 @@ package com.ztian.service;
 import android.annotation.SuppressLint;
 import android.app.Service;
 import android.content.Intent;
+import android.content.res.AssetFileDescriptor;
+import android.content.res.AssetManager;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
@@ -14,6 +16,7 @@ import android.provider.MediaStore;
 import android.widget.Toast;
 
 import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Random;
@@ -23,9 +26,11 @@ import java.util.TimerTask;
 public class MusicService extends Service {
     private MediaPlayer player;
     private Timer timer;
-    public MusicService() {}
+    public MusicService() throws IOException {}
 
     Field[]fields=R.raw.class.getDeclaredFields();   //获取raw底下的文件
+
+
     @Override
     public IBinder onBind(Intent intent) {
         return new MusicControl();
@@ -59,22 +64,44 @@ public class MusicService extends Service {
         }
     }
     class MusicControl extends Binder {
+
         Random r=new Random();
         int index=r.nextInt(fields.length)+0;
-        String name;
+        String name="";
+        String save;
+        String[] list;
+        String nextname="";
         public void play() {
             try {
-                //player.reset();//重置音乐播放器
+                player.reset();//重置音乐播放器
                 //加载多媒体文件
-                player = MediaPlayer.create(getApplicationContext(), fields[index].getInt(R.raw.class));
+                /*for (int i=0;i<fields.length;i++){//点击收藏中的内容
+                    if (fields[i].getName().equals(save)){index=i;}
+
+                }*/
+                /*player = MediaPlayer.create(getApplicationContext(), fields[index].getInt(R.raw.class));
                 name=fields[index].getName();
-                  //  player.prepare();
                 player.start();//播放音乐
+                */
+
+                //从高翔端传来两个参数，一个为空，一个不为空，用不为空的那一个Emotion
+                AssetManager am = getAssets();
+                list=am.list("happy/");
+                AssetFileDescriptor afd=am.openFd("happy/"+list[index]);
+                name=list[index].substring(0,list[index].indexOf("."));
+                if (index==list.length-1) {
+                    nextname = list[0].substring(0, list[0].indexOf("."));
+                }
+                else {nextname=list[index+1].substring(0,list[index+1].indexOf("."));}
+                player.setDataSource(afd.getFileDescriptor(),afd.getStartOffset(),afd.getLength());
+                player.prepare();
+                player.start();
                 addTimer();     //添加计时器
                 player.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
                         @Override
                         public void onCompletion(MediaPlayer mp) {
                             next();
+
                         }
                     });
                     //Toast.makeText(MusicService.this,"有文件",Toast.LENGTH_SHORT).show();
@@ -103,7 +130,7 @@ public class MusicService extends Service {
                  player.stop();
              }
              play();
-            addTimer();
+
         }
 
     }
